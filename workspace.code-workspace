@@ -18,7 +18,8 @@
 			"limits": "cpp",
 			"iosfwd": "cpp",
 			"cmath": "cpp",
-			"xlocale": "cpp"
+			"xlocale": "cpp",
+			"xstring": "cpp"
 		}
 	}
 }
