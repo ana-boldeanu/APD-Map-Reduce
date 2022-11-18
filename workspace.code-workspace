@@ -7,5 +7,10 @@
 			"path": "..\\APD-Laborator\\APD-master\\laboratoare"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"utility": "cpp",
+			"fstream": "cpp"
+		}
+	}
 }
