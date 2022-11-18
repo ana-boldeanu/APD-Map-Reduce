@@ -16,7 +16,8 @@
 			"algorithm": "cpp",
 			"memory": "cpp",
 			"limits": "cpp",
-			"iosfwd": "cpp"
+			"iosfwd": "cpp",
+			"cmath": "cpp"
 		}
 	}
 }

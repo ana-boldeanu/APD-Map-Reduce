@@ -88,26 +88,28 @@ void *mapper_thread(void *arg) {
     int max_exp = data.max_exponent;
     list<pair<string, int>> *data_files = data.data_files;
     ifstream data_file;
+    pair<string, int> file;
+    string file_name;
     int values, value, base;
     bool found;
     list<int> ***mapper_results = data.mapper_results;
 
-    for (auto &file : *data_files) {
-        data_file.open(file.first);
+    while (!data_files->empty()) {
+        file = data_files->front();
+        file_name = file.first;
+        data_files->pop_front();
 
+        data_file.open(file_name);
         data_file >> values;
-        // cout << "** There are " << values << " values." << endl;
 
         for (int i = 0; i < values; i++) {
             data_file >> value;
-            // cout << "Checking value " << value << endl;
 
             if (value > 0) {
                 for (int exp = 2; exp <= max_exp; exp++) {
                     base = findNthPowerBase(value, exp, found);
                     if (found) {
-                        // cout << "   Found base " << base << " for power " << exp << endl;
-                        mapper_results[0][exp]->push_back(value);
+                        mapper_results[id][exp]->push_back(value);
                     }
                 }
             }
@@ -128,33 +130,24 @@ struct reducer_data {
 } ;
 
 void *reducer_thread(void *arg) {
-    int reducers = 4;
-    int max_exponent = 6;
-
     reducer_data data = *(reducer_data*)arg;
 	int id = data.id;
+    int exp = id + 2;
     list<int> ***mapper_results = data.mapper_results;
     ofstream out_file;
     string out_file_name;
 
-    for (int i = 0; i < reducers; i++) {
-        int exp = i + 2;
+    mapper_results[0][exp]->sort();
+    mapper_results[0][exp]->unique();
 
-        mapper_results[0][exp]->sort();
-        mapper_results[0][exp]->unique();
-    }
+    out_file_name = "out";
+    out_file_name.append(to_string(exp));
+    out_file_name.append(".txt");
+    out_file.open(out_file_name);
 
+    out_file << mapper_results[0][exp]->size();
 
-    for (int exp = 2; exp <= max_exponent; exp++) {
-        out_file_name = "out";
-        out_file_name.append(to_string(exp));
-        out_file_name.append(".txt");
-        out_file.open(out_file_name);
-
-        out_file << mapper_results[0][exp]->size();
-
-        out_file.close();
-    }
+    out_file.close();
 
     return NULL;
 }
@@ -230,8 +223,11 @@ int main(int argc, char *argv[]) {
     mapper_thread((void *) &mapper);
 
     reducer_data reducer;
-    reducer.id = 0;
     reducer.mapper_results = mapper_results;
 
-    reducer_thread((void *) &reducer);
+    for (int i = 0; i < reducers; i++) {
+        reducer.id = i;
+        reducer_thread((void *) &reducer);
+    }
+    
 }
