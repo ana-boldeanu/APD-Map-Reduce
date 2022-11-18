@@ -1,8 +1,8 @@
-#include <iostream>
 #include <fstream>
 #include <string>
 #include <list>
 #include <pthread.h>
+#include "utils.h"
 
 using namespace std;
 

@@ -3,6 +3,4 @@ build:
 	
 clean:
 	rm tema1
-
-clean-out:
-	rm out*
+	
