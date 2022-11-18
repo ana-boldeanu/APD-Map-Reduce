@@ -12,7 +12,11 @@
 			"utility": "cpp",
 			"fstream": "cpp",
 			"iostream": "cpp",
-			"list": "cpp"
+			"list": "cpp",
+			"algorithm": "cpp",
+			"memory": "cpp",
+			"limits": "cpp",
+			"iosfwd": "cpp"
 		}
 	}
 }
