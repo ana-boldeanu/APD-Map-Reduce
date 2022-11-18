@@ -10,7 +10,9 @@
 	"settings": {
 		"files.associations": {
 			"utility": "cpp",
-			"fstream": "cpp"
+			"fstream": "cpp",
+			"iostream": "cpp",
+			"list": "cpp"
 		}
 	}
 }
