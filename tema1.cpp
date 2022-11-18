@@ -1,9 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <vector>
 #include <list>
-#include <algorithm>
+#include <pthread.h>
 
 using namespace std;
 
@@ -78,7 +77,9 @@ struct mapper_data {
     int id;
     int max_exponent;
     list<pair<string, int>> *data_files;
-    list<int> ***mapper_results;
+    list<int> ***results;
+    pthread_mutex_t *mutex;
+    pthread_barrier_t *barrier;
     mapper_data(){};
 } ;
 
@@ -90,14 +91,18 @@ void *mapper_thread(void *arg) {
     ifstream data_file;
     pair<string, int> file;
     string file_name;
-    int values, value, base;
+    int values, value;
     bool found;
-    list<int> ***mapper_results = data.mapper_results;
+    list<int> ***mapper_results = data.results;
 
     while (!data_files->empty()) {
+        pthread_mutex_lock(data.mutex);
+
         file = data_files->front();
         file_name = file.first;
         data_files->pop_front();
+
+        pthread_mutex_unlock(data.mutex);
 
         data_file.open(file_name);
         data_file >> values;
@@ -107,7 +112,7 @@ void *mapper_thread(void *arg) {
 
             if (value > 0) {
                 for (int exp = 2; exp <= max_exp; exp++) {
-                    base = findNthPowerBase(value, exp, found);
+                    findNthPowerBase(value, exp, found);
                     if (found) {
                         mapper_results[id][exp]->push_back(value);
                     }
@@ -117,39 +122,50 @@ void *mapper_thread(void *arg) {
         data_file.close();
     }
 
-    return NULL;
+    pthread_barrier_wait(data.barrier);
 
-  	// pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
 
 struct reducer_data {
     int id;
+    int mappers;
     list<int> ***mapper_results;
+    pthread_barrier_t *barrier;
     reducer_data(){};
 } ;
 
 void *reducer_thread(void *arg) {
     reducer_data data = *(reducer_data*)arg;
+
+    pthread_barrier_wait(data.barrier);
+
 	int id = data.id;
     int exp = id + 2;
+    int mappers = data.mappers;
     list<int> ***mapper_results = data.mapper_results;
     ofstream out_file;
     string out_file_name;
 
-    mapper_results[0][exp]->sort();
-    mapper_results[0][exp]->unique();
+    list<int> *result = mapper_results[0][exp];
+    
+    for (int i = 1; i < mappers; i++) {
+        result->splice(result->end(), *mapper_results[i][exp]);
+    }
+
+    result->sort();
+    result->unique();
 
     out_file_name = "out";
     out_file_name.append(to_string(exp));
     out_file_name.append(".txt");
     out_file.open(out_file_name);
 
-    out_file << mapper_results[0][exp]->size();
+    out_file << result->size();
 
     out_file.close();
-
-    return NULL;
+    pthread_exit(NULL);
 }
 
 int main(int argc, char *argv[]) {
@@ -157,10 +173,6 @@ int main(int argc, char *argv[]) {
     int reducers;   // Number of Reducer threads
     int max_exponent;
     int data_files_nr; // Number of files to process
-    int values;     // Number of values that a file contains
-    int value;
-    int base;
-    bool found;
     ifstream input_file;   // File containing information about this test
     ifstream data_file;    // File containing data to process
     ofstream out_file;
@@ -214,20 +226,63 @@ int main(int argc, char *argv[]) {
 
     data_files.sort(compareDataFiles);
 
-    mapper_data mapper;
-    mapper.data_files = &data_files;
-    mapper.id = 0;
-    mapper.mapper_results = mapper_results;
-    mapper.max_exponent = max_exponent;
 
-    mapper_thread((void *) &mapper);
 
-    reducer_data reducer;
-    reducer.mapper_results = mapper_results;
+    pthread_mutex_t mutex;
+    pthread_mutex_init(&mutex, NULL);
 
-    for (int i = 0; i < reducers; i++) {
-        reducer.id = i;
-        reducer_thread((void *) &reducer);
+    pthread_barrier_t barrier;
+    pthread_barrier_init(&barrier, NULL, mappers + reducers);
+
+    mapper_data *mapper;
+    reducer_data *reducer;
+
+    pthread_t threads[mappers + reducers];
+  	int ret;
+  	void *status;
+
+  	for (int id = 0; id < mappers; id++) {
+        mapper = new mapper_data();
+        mapper->data_files = &data_files;
+        mapper->results = mapper_results;
+        mapper->max_exponent = max_exponent;
+        mapper->id = id;
+        mapper->mutex = &mutex;
+        mapper->barrier = &barrier;
+
+        ret = pthread_create(&threads[id], NULL, mapper_thread, (void*)mapper);
+
+        if (ret) {
+			printf("Error creating thread %d\n", id);
+			exit(-1);
+		}
+    }
+
+    for (int id = 0; id < reducers; id++) {
+        reducer = new reducer_data();
+        reducer->mapper_results = mapper_results;
+        reducer->mappers = mappers;
+        reducer->id = id;
+        reducer->barrier = &barrier;
+        ret = pthread_create(&threads[id + mappers], NULL, reducer_thread, (void*)reducer);
+
+        if (ret) {
+			printf("Error creating thread %d\n", id);
+			exit(-1);
+		}
     }
     
+    for (int id = 0; id < mappers + reducers; id++) {
+		ret = pthread_join(threads[id], &status);
+
+        if (ret) {
+			printf("Error joining thread %d\n", id);
+			exit(-1);
+		}
+  	}
+
+    pthread_mutex_destroy(&mutex);
+    pthread_barrier_destroy(&barrier);
+
+    pthread_exit(NULL);
 }

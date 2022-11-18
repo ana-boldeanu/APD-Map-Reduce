@@ -17,7 +17,8 @@
 			"memory": "cpp",
 			"limits": "cpp",
 			"iosfwd": "cpp",
-			"cmath": "cpp"
+			"cmath": "cpp",
+			"xlocale": "cpp"
 		}
 	}
 }
